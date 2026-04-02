@@ -163,6 +163,56 @@ TEST(ProcessingFlowScenarios, routeChurnCreateAndDelete)
     remove_switch(switchId);
 }
 
+TEST(ProcessingFlowScenarios, routeChurnBulkCreateAndCleanup)
+{
+    clear_local();
+
+    const uint32_t routeCount = 128;
+
+    sai_object_id_t switchId = create_switch();
+    sai_object_id_t vrId = create_virtual_router(switchId);
+    sai_object_id_t nhId = create_next_hop(switchId);
+
+    std::vector<sai_route_entry_t> routes(routeCount);
+    std::vector<uint32_t> attrCounts(routeCount, 1);
+    std::vector<const sai_attribute_t*> attrLists(routeCount, nullptr);
+    std::vector<sai_status_t> statuses(routeCount, SAI_STATUS_FAILURE);
+
+    sai_attribute_t routeAttr = {};
+    routeAttr.id = SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID;
+    routeAttr.value.oid = nhId;
+
+    for (uint32_t i = 0; i < routeCount; ++i)
+    {
+        routes[i] = {};
+        routes[i].switch_id = switchId;
+        routes[i].vr_id = vrId;
+        routes[i].destination.addr_family = SAI_IP_ADDR_FAMILY_IPV4;
+        routes[i].destination.addr.ip4 = htonl(0x0c000000 + i);
+        routes[i].destination.mask.ip4 = htonl(0xffffff00);
+
+        attrLists[i] = &routeAttr;
+    }
+
+    EXPECT_EQ(
+            SAI_STATUS_SUCCESS,
+            g_meta->bulkCreate(
+                routeCount,
+                routes.data(),
+                attrCounts.data(),
+                attrLists.data(),
+                SAI_BULK_OP_ERROR_MODE_IGNORE_ERROR,
+                statuses.data()));
+
+    for (uint32_t i = 0; i < routeCount; ++i)
+    {
+        EXPECT_EQ(SAI_STATUS_SUCCESS, statuses[i]);
+        EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(&routes[i]));
+    }
+
+    remove_switch(switchId);
+}
+
 TEST(ProcessingFlowScenarios, aclInPlaceActionUpdate)
 {
     clear_local();
