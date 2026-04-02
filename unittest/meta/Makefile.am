@@ -48,6 +48,7 @@ tests_SOURCES = \
 				TestLegacyRouteEntry.cpp \
 				TestLegacyOther.cpp \
 				TestFunctionalCriteria.cpp \
+				TestSaiObjectModelAssessment.cpp \
 				TestZeroMQSelectableChannel.cpp \
 				TestMeta.cpp \
 				TestMetaDash.cpp
