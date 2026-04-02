@@ -50,6 +50,7 @@ tests_SOURCES = \
 				TestFunctionalCriteria.cpp \
 				TestSaiObjectModelAssessment.cpp \
 				TestProcessingFlowScenarios.cpp \
+				TestAssessmentResultsAndGaps.cpp \
 				TestZeroMQSelectableChannel.cpp \
 				TestMeta.cpp \
 				TestMetaDash.cpp
