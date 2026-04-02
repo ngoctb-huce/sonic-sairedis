@@ -25,6 +25,41 @@ namespace
 
         return md;
     }
+
+    sai_object_id_t createAclTable(
+            _In_ sai_object_id_t switchId)
+    {
+        sai_object_id_t aclTable = SAI_NULL_OBJECT_ID;
+
+        sai_attribute_t attrs[1] = {};
+        attrs[0].id = SAI_ACL_TABLE_ATTR_ACL_STAGE;
+        attrs[0].value.s32 = SAI_ACL_STAGE_INGRESS;
+
+        EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->create(SAI_OBJECT_TYPE_ACL_TABLE, &aclTable, switchId, 1, attrs));
+
+        return aclTable;
+    }
+
+    sai_object_id_t createSchedulerGroup(
+            _In_ sai_object_id_t switchId,
+            _In_ sai_object_id_t portId)
+    {
+        sai_object_id_t schedulerGroup = SAI_NULL_OBJECT_ID;
+
+        sai_attribute_t attrs[4] = {};
+        attrs[0].id = SAI_SCHEDULER_GROUP_ATTR_PORT_ID;
+        attrs[0].value.oid = portId;
+        attrs[1].id = SAI_SCHEDULER_GROUP_ATTR_LEVEL;
+        attrs[1].value.u8 = 0;
+        attrs[2].id = SAI_SCHEDULER_GROUP_ATTR_MAX_CHILDS;
+        attrs[2].value.u8 = 1;
+        attrs[3].id = SAI_SCHEDULER_GROUP_ATTR_PARENT_NODE;
+        attrs[3].value.oid = portId;
+
+        EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->create(SAI_OBJECT_TYPE_SCHEDULER_GROUP, &schedulerGroup, switchId, 4, attrs));
+
+        return schedulerGroup;
+    }
 }
 
 TEST(SaiObjectModelAssessment, coreObjectsMetadataAndAttributes)
@@ -181,4 +216,100 @@ TEST(SaiObjectModelAssessment, controlObjectsMetadataCoverage)
 #ifdef SAI_WRED_ATTR_YELLOW_DROP_PROBABILITY
     requireAttr(SAI_OBJECT_TYPE_WRED, SAI_WRED_ATTR_YELLOW_DROP_PROBABILITY);
 #endif
+}
+
+TEST(SaiObjectModelAssessment, routeNextHopIdAcceptsNhAndNhg)
+{
+    auto md = requireAttr(SAI_OBJECT_TYPE_ROUTE_ENTRY, SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID);
+    ASSERT_NE(md, nullptr);
+
+    bool hasNh = false;
+    bool hasNhg = false;
+
+    for (size_t i = 0; i < md->allowedobjecttypeslength; ++i)
+    {
+        if (md->allowedobjecttypes[i] == SAI_OBJECT_TYPE_NEXT_HOP)
+        {
+            hasNh = true;
+        }
+
+        if (md->allowedobjecttypes[i] == SAI_OBJECT_TYPE_NEXT_HOP_GROUP)
+        {
+            hasNhg = true;
+        }
+    }
+
+    EXPECT_TRUE(hasNh);
+    EXPECT_TRUE(hasNhg);
+}
+
+TEST(SaiObjectModelAssessment, controlObjectsAclAndQosCrud)
+{
+    clear_local();
+
+    sai_object_id_t switchId = create_switch();
+
+    sai_object_id_t aclTable = createAclTable(switchId);
+
+    sai_object_id_t aclCounter = SAI_NULL_OBJECT_ID;
+    sai_attribute_t aclCounterAttrs[1] = {};
+    aclCounterAttrs[0].id = SAI_ACL_COUNTER_ATTR_TABLE_ID;
+    aclCounterAttrs[0].value.oid = aclTable;
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->create(SAI_OBJECT_TYPE_ACL_COUNTER, &aclCounter, switchId, 1, aclCounterAttrs));
+
+    sai_object_id_t aclRange = SAI_NULL_OBJECT_ID;
+    sai_attribute_t aclRangeAttrs[2] = {};
+    aclRangeAttrs[0].id = SAI_ACL_RANGE_ATTR_TYPE;
+    aclRangeAttrs[0].value.s32 = SAI_ACL_RANGE_TYPE_L4_DST_PORT_RANGE;
+    aclRangeAttrs[1].id = SAI_ACL_RANGE_ATTR_LIMIT;
+    aclRangeAttrs[1].value.u32range.min = 1024;
+    aclRangeAttrs[1].value.u32range.max = 65535;
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->create(SAI_OBJECT_TYPE_ACL_RANGE, &aclRange, switchId, 2, aclRangeAttrs));
+
+    sai_object_id_t aclEntry = SAI_NULL_OBJECT_ID;
+    sai_attribute_t aclEntryAttrs[4] = {};
+    aclEntryAttrs[0].id = SAI_ACL_ENTRY_ATTR_TABLE_ID;
+    aclEntryAttrs[0].value.oid = aclTable;
+    aclEntryAttrs[1].id = SAI_ACL_ENTRY_ATTR_PRIORITY;
+    aclEntryAttrs[1].value.u32 = 100;
+    aclEntryAttrs[2].id = SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP;
+    aclEntryAttrs[2].value.aclfield.enable = true;
+    aclEntryAttrs[2].value.aclfield.data.ip4 = htonl(0xc0a8010a);
+    aclEntryAttrs[2].value.aclfield.mask.ip4 = 0xffffffff;
+    aclEntryAttrs[3].id = SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION;
+    aclEntryAttrs[3].value.aclaction.enable = true;
+    aclEntryAttrs[3].value.aclaction.parameter.s32 = SAI_PACKET_ACTION_DROP;
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->create(SAI_OBJECT_TYPE_ACL_ENTRY, &aclEntry, switchId, 4, aclEntryAttrs));
+
+    sai_attribute_t updateAction = {};
+    updateAction.id = SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION;
+    updateAction.value.aclaction.enable = true;
+    updateAction.value.aclaction.parameter.s32 = SAI_PACKET_ACTION_FORWARD;
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->set(SAI_OBJECT_TYPE_ACL_ENTRY, aclEntry, &updateAction));
+
+    sai_object_id_t portId = create_port(switchId);
+    sai_object_id_t schedulerGroup = createSchedulerGroup(switchId, portId);
+
+    sai_object_id_t queue = SAI_NULL_OBJECT_ID;
+    sai_attribute_t queueAttrs[4] = {};
+    queueAttrs[0].id = SAI_QUEUE_ATTR_TYPE;
+    queueAttrs[0].value.s32 = SAI_QUEUE_TYPE_UNICAST;
+    queueAttrs[1].id = SAI_QUEUE_ATTR_INDEX;
+    queueAttrs[1].value.u8 = 7;
+    queueAttrs[2].id = SAI_QUEUE_ATTR_PORT;
+    queueAttrs[2].value.oid = portId;
+    queueAttrs[3].id = SAI_QUEUE_ATTR_PARENT_SCHEDULER_NODE;
+    queueAttrs[3].value.oid = schedulerGroup;
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->create(SAI_OBJECT_TYPE_QUEUE, &queue, switchId, 4, queueAttrs));
+
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(SAI_OBJECT_TYPE_QUEUE, queue));
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(SAI_OBJECT_TYPE_SCHEDULER_GROUP, schedulerGroup));
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(SAI_OBJECT_TYPE_PORT, portId));
+
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(SAI_OBJECT_TYPE_ACL_ENTRY, aclEntry));
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(SAI_OBJECT_TYPE_ACL_RANGE, aclRange));
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(SAI_OBJECT_TYPE_ACL_COUNTER, aclCounter));
+    EXPECT_EQ(SAI_STATUS_SUCCESS, g_meta->remove(SAI_OBJECT_TYPE_ACL_TABLE, aclTable));
+
+    remove_switch(switchId);
 }
