@@ -55,6 +55,7 @@ tests_SOURCES = \
 				TestSaiP4IntegrationArchitecture.cpp \
 				TestPerformanceConsistencyStrategy.cpp \
 				TestOptimizationSelectionCriteria.cpp \
+				TestDetailedSoftwareComponents.cpp \
 				TestZeroMQSelectableChannel.cpp \
 				TestMeta.cpp \
 				TestMetaDash.cpp
