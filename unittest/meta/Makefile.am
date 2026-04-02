@@ -57,6 +57,7 @@ tests_SOURCES = \
 				TestOptimizationSelectionCriteria.cpp \
 				TestDetailedSoftwareComponents.cpp \
 				TestDataContractAndDbSchema.cpp \
+				TestDeploymentAndVersionControl.cpp \
 				TestZeroMQSelectableChannel.cpp \
 				TestMeta.cpp \
 				TestMetaDash.cpp
