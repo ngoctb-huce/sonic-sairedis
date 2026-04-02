@@ -52,6 +52,7 @@ tests_SOURCES = \
 				TestProcessingFlowScenarios.cpp \
 				TestAssessmentResultsAndGaps.cpp \
 				TestP4AsicSaiCompatibility.cpp \
+				TestSaiP4IntegrationArchitecture.cpp \
 				TestZeroMQSelectableChannel.cpp \
 				TestMeta.cpp \
 				TestMetaDash.cpp
