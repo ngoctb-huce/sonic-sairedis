@@ -53,6 +53,7 @@ tests_SOURCES = \
 				TestAssessmentResultsAndGaps.cpp \
 				TestP4AsicSaiCompatibility.cpp \
 				TestSaiP4IntegrationArchitecture.cpp \
+				TestPerformanceConsistencyStrategy.cpp \
 				TestZeroMQSelectableChannel.cpp \
 				TestMeta.cpp \
 				TestMetaDash.cpp
