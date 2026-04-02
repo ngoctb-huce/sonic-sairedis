@@ -45,6 +45,7 @@ tests_SOURCES = \
 				TestLegacyVlan.cpp \
 				TestLegacyRouteEntry.cpp \
 				TestLegacyOther.cpp \
+				TestFunctionalCriteria.cpp \
 				TestZeroMQSelectableChannel.cpp \
 				TestMeta.cpp \
 				TestMetaDash.cpp

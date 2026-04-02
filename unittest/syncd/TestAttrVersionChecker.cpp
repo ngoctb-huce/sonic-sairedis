@@ -130,3 +130,18 @@ TEST(AttrVersionChecker, isSufficientVersion)
     avc.setSaiApiVersion(SAI_VERSION(1,11,0));
     EXPECT_EQ(avc.isSufficientVersion(&md2),false);
 }
+
+TEST(AttrVersionChecker, unsupportedFutureAttributeGracefulFallback)
+{
+    AttrVersionChecker avc;
+
+    avc.enable(true);
+    avc.setSaiApiVersion(SAI_VERSION(1,12,0));
+
+    MD(mdFuture, SAI_VERSION(1,13,0), false);
+    EXPECT_EQ(avc.isSufficientVersion(&mdFuture), false);
+
+    // Disabling checker must keep behavior safe and non-blocking for mixed-version deployments.
+    avc.enable(false);
+    EXPECT_EQ(avc.isSufficientVersion(&mdFuture), true);
+}
